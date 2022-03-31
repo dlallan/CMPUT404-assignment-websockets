@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import flask
 from flask import Flask, jsonify, request, redirect
 from flask_sockets import Sockets
 import gevent
 from gevent import queue
-import time
 import json
-import os
 
+
+clients = list()
 app = Flask(__name__)
 sockets = Sockets(app)
 app.debug = True
@@ -63,6 +62,8 @@ myWorld = World()
 
 def set_listener( entity, data ):
     ''' do something with the update ! '''
+    for client in clients:
+        client.put_nowait(json.dumps({entity: data}))
 
 myWorld.add_set_listener( set_listener )
         
@@ -73,15 +74,35 @@ def hello():
 
 def read_ws(ws,client):
     '''A greenlet function that reads from the websocket and updates the world'''
-    # XXX: TODO IMPLEMENT ME
-    return None
+    try:
+        while True:
+            buffer = ws.receive()            
+            if buffer:
+                world_data = json.loads(buffer)
+                for entity, data in world_data.items():
+                    myWorld.set(entity, data)
+            else:
+                break
+    except:
+        pass
 
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
-    # XXX: TODO IMPLEMENT ME
-    return None
+    client = queue.Queue()
+    clients.append(client)
+    worker = gevent.spawn(read_ws, ws, None)
+    try:
+        while True:
+            client_world = client.get()
+            ws.send(client_world)
+    except Exception as e:
+        print(f"subscribe_socket: {e=}")
+    finally:
+        print('subscribe_socket: killing client worker')
+        clients.pop()
+        gevent.kill(worker)
 
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
