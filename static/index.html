@@ -24,7 +24,6 @@
     <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas>
 
     <script>
-        // Fix me
         var canvas = document.getElementById('c');
         var host = window.location.host;
         var context = canvas.getContext("2d");
@@ -41,28 +40,27 @@
 
         world = {};
 
-        //XXX: TODO Make this prettier!
         function drawCircle(context, entity) {
             with (context) {
                 beginPath();
-                lineWidth = 3;
                 var x = entity["x"];
                 var y = entity["y"];
-                //moveTo(x,y);
+                lineWidth = entity["lineWidth"];
                 fillStyle = entity["colour"];
                 strokeStyle = fillStyle;
+                shadowBlur = entity["shadowBlur"];
+                shadowColor = entity["shadowColor"];
                 arc(x, y, (entity["radius"]) ? entity["radius"] : 50, 0, 2.0 * Math.PI, false);
                 stroke();
             }
         }
 
         function prepEntity(entity) {
-            if (!entity["colour"]) {
-                entity["colour"] = "#FF0000";
-            }
-            if (!entity["radius"]) {
-                entity["radius"] = 50;
-            }
+            entity["colour"] ??= "#FFFFFF";
+            entity["radius"] ??= 50;
+            entity["lineWidth"] ??= 3;
+            entity["shadowColor"] ??= 'white';
+            entity["shadowBlur"] ??= 5;
             return entity;
         }
 
@@ -233,19 +231,34 @@
         })();
 
         // Add the application specific mouse listeners!
-        //XXX: TODO Make these prettier!
         mouse.mousedowners.push(function (x, y, clicked, e) {
-            addEntityWithoutName({ 'x': x, 'y': y, 'colour': 'blue' });
+            addEntityWithoutName({
+                'x': x, 'y': y,
+                'lineWidth': 3 + Math.random() * 9,
+                'colour': '#8be4ff',
+                'shadowColor': '#2a82a4',
+                'shadowBlur': 30
+            });
         });
 
         mouse.mouseuppers.push(function (x, y, clicked, e) {
-            addEntityWithoutName({ 'x': x, 'y': y, 'colour': 'red' });
+            addEntityWithoutName({
+                'x': x, 'y': y,
+                "lineWidth": 7 + Math.random() * 13,
+                'colour': 'white',
+                "shadowColor": 'red',
+                "shadowBlur": 50
+            });
         });
 
         mouse.mousedraggers.push(function (x, y, clicked, e) {
             addEntityWithoutName({
-                'x': x, 'y': y, 'colour': 'green',
-                'radius': 10
+                'x': x, 'y': y,
+                'lineWidth': 1 + Math.random() * 7,
+                'colour': '#8dda5e',
+                'radius': 10,
+                'shadowColor': '#469321',
+                'shadowBlur': 100
             });
         });
 
@@ -268,12 +281,9 @@
             socket.onmessage = function (msg) {
                 try {
                     debug("WebSocket Recv:" + msg.data);
-                    
+
                     const new_entity = JSON.parse(msg.data);
-                    console.debug('new_entity', new_entity);                    
-                    for (let [key, value] of Object.entries(new_entity)) {
-                        world[key] = value;
-                    }                                        
+                    Object.entries(new_entity).forEach(([key, value]) => world[key] = value);
                     drawNextFrame();
                 } catch (e) {
                     alert("socket on message: " + e);
